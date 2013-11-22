@@ -1,104 +1,171 @@
+#include <Ping.h>  //include the ping)) libs
 #include <Servo.h> // includes the servo libs
 
-#define LEFTSERVOPIN  5
+#define LEFTSERVOPIN  9
 #define RIGHTSERVOPIN  6
+#define HEADSERVOPIN  8
+#define PINGPIN 7        // Ultrasound signal pin
+#define LEFTSERVOCALIB 52  //servo zero out
+#define RIGHTSERVOCALIB 79  //servo zero out
 
 Servo leftServo;       // name the servo
 Servo rightServo;      // name the servo
-int ultraSoundSignal = 7; // Ultrasound signal pin
-int val = 0;
-int val2 = 0;
-int ultrasoundValue = 0;
-int timecount = 0; // Echo counter
+Servo headServo;
+Ping ping = Ping(PINGPIN);
 
-int speed = 80;
+int speed = 10;
 
 void setup(){
    pinMode(RIGHTSERVOPIN,OUTPUT);
    pinMode(LEFTSERVOPIN,OUTPUT);
-   leftServo.attach(6);	 // Attaches the Left Servo to PWM pin 6 on the Arduino
-   rightServo.attach(5); // Attaches the Right Servo to PWM pin 5 on the Arduino
+   pinMode(HEADSERVOPIN,OUTPUT);
+   leftServo.attach(LEFTSERVOPIN);	 // Attaches the Left Servo to PWM pin 6 on the Arduino
+   rightServo.attach(RIGHTSERVOPIN);   // Attaches the Right Servo to PWM pin 5 on the Arduino
+   headServo.attach(HEADSERVOPIN);
+   goStop();
    Serial.begin(9600);                  // Sets the baud rate to 9600
+   turnHeadRight();
+   turnHeadLeft();
+   turnHeadForward();
 }
 
-void loop() {
-
- // Ping))) functions: Doing more than I need it to, I think, but code
-
- timecount = 0;
- val = 0;
- pinMode(ultraSoundSignal, OUTPUT);   // Switch signalpin to output
-
-  digitalWrite(ultraSoundSignal, LOW);  // Send low pulse
-  delayMicroseconds(2);                 // Wait for 2 microseconds
-  digitalWrite(ultraSoundSignal, HIGH); // Send high pulse
-  delayMicroseconds(5);                 // Wait for 5 microseconds
-  digitalWrite(ultraSoundSignal, LOW);  // Holdoff
-
-  pinMode(ultraSoundSignal, INPUT);     // Switch signalpin to input
-  val = digitalRead(ultraSoundSignal);  // Append signal value to val
-  while(val == LOW) {                   // Loop until pin reads a high value
-    val = digitalRead(ultraSoundSignal);
-}
-  while(val == HIGH) {                  // Loop until pin reads a high value
-  val = digitalRead(ultraSoundSignal);
-  timecount = timecount +1;           // Count echo pulse time
-}
-
-ultrasoundValue = timecount;          // Append echo pulse time to ultrasoundValue
-
-// Servo functions: The basics
-  if(ultrasoundValue > 300){
-      goForward();
-      delay(300);
+void loop() 
+{
+  double distanceForward = 0;
+  double distanceRight = 0;
+  double distanceLeft = 0;
+  
+  distanceForward = lookForward();
+  if(distanceForward > 12)
+  {
+    goForward(0);
+    delay(700);
   }
-  if(ultrasoundValue < 300){
+  else
+  {
+    goForward(-7);
+    distanceRight = lookRight();
+    distanceLeft = lookLeft();
+    if(distanceRight > distanceForward && distanceRight > distanceLeft)
+    {
       goRight();
-     delay(150); 
-  }
-     if(ultrasoundValue < 100){
-       goRight();
-       delay(250);
-  }
+      delay(600);
+      goStop();
+    }
+    else if(distanceLeft > distanceForward && distanceLeft > distanceRight)
+    {
+      goLeft();
+      delay(600);
+      goStop(); 
+    }
+    else
+    {
+      goForward(-5);
+      delay(100);
+      goStop();
+    }
+  } 
 }
+void setupRobot()
+{
+    pinMode(RIGHTSERVOPIN,OUTPUT);
+   pinMode(LEFTSERVOPIN,OUTPUT);
+   pinMode(HEADSERVOPIN,OUTPUT);
+   leftServo.attach(LEFTSERVOPIN);	 // Attaches the Left Servo to PWM pin 6 on the Arduino
+   rightServo.attach(RIGHTSERVOPIN);   // Attaches the Right Servo to PWM pin 5 on the Arduino
+   headServo.attach(HEADSERVOPIN);
+   goStop();
+}
+
+/*
+ * turn Head Forward
+ */
+void turnHeadForward(){
+ headServo.write(90);
+ delay(300);
+}
+/*
+ * turn Head Right
+ */
+void turnHeadRight(){
+ headServo.write(179);
+ delay(700);
+}
+/*
+ * turn Head Left
+ */
+void turnHeadLeft(){
+ headServo.write(0);
+ delay(700);
+}
+
+/*
+ * Look Forward
+ */
+double lookForward(){
+ turnHeadForward();
+ ping.fire();
+ delay(50);
+ return ping.inches();
+}
+/*
+ * Look Right
+ */
+double lookRight(){
+  turnHeadRight();
+  ping.fire();
+  delay(50);
+  turnHeadForward();
+  return ping.inches();
+}
+/*
+ * Look Left
+ */
+double lookLeft(){
+  turnHeadLeft();
+  ping.fire();
+  delay(50);
+  turnHeadForward();
+  return ping.inches();
+}
+
 
 /*
  * sends the robot forwards
  */
-void goForward(){
- leftServo.write(90 - speed);
- rightServo.write(90 + speed);
+void goForward(int faster){
+ leftServo.write(LEFTSERVOCALIB - speed - faster);
+ rightServo.write(RIGHTSERVOCALIB + speed + faster);
 }
 
 /*
  * sends the robot backwards
  */
-void goBackward(){
- leftServo.write(90 + speed);
- rightServo.write(90 - speed);
+void goBackward(int faster){
+ leftServo.write(LEFTSERVOCALIB + speed + faster);
+ rightServo.write(RIGHTSERVOCALIB - speed - faster);
 }
   
 /*
  * sends the robot right
  */
 void goRight(){
- leftServo.write(90 + speed);
- rightServo.write(90 + speed);
+ leftServo.write(LEFTSERVOCALIB - speed);
+ rightServo.write(RIGHTSERVOCALIB - speed);
 }
 
 /*
  * sends the robot left
  */
 void goLeft(){
- leftServo.write(90 - speed);
- rightServo.write(90 - speed);
+ leftServo.write(LEFTSERVOCALIB + speed);
+ rightServo.write(RIGHTSERVOCALIB + speed);
 }
 
 /*
  * stops the robot
  */
 void goStop(){
- leftServo.write(90);
- rightServo.write(90);
+ leftServo.write(LEFTSERVOCALIB);
+ rightServo.write(RIGHTSERVOCALIB);
 }
-
